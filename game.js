@@ -1,15 +1,15 @@
 // --- 1. GAME CONTEXT & WALLET STATE ---
-let balance = 1000.00; // Starting Balance!
+let balance = 1000.00;
 
-// New Bet Tier System
 const BET_TIERS = [1, 3, 5, 8, 10, 20, 30, 50, 100, 200, 500, 1000];
-let currentBetIndex = 4; // Starts at index 4 (which is $10)
+let currentBetIndex = 4; // Starts at $10
 let betAmount = BET_TIERS[currentBetIndex]; 
 
 let currentWin = 0.00;
 let multiplierIndex = 0; 
 let freeSpinsRemaining = 0;
 let isFreeSpinMode = false;
+let scattersGeneratedThisSpin = 0; // STAGE 3: Scatter Limiter
 
 const NORMAL_MULTIPLIERS = [1, 2, 3, 5];
 const FREE_MULTIPLIERS = [2, 4, 6, 10];
@@ -25,6 +25,16 @@ let isGameRunning = false;
 let app;
 let gridData = [];
 let gridSprites = [];
+
+// STAGE 1: Weighted Math Strips (The House Edge)
+// 0=J, 1=Q, 2=K, 3=A
+const REEL_STRIPS = [
+    [0, 0, 0, 1, 1, 1, 2, 3],       // Reel 1: Heavy J & Q
+    [2, 2, 2, 3, 3, 3, 0, 1],       // Reel 2: Heavy K & A (Breaks the chain often)
+    [0, 1, 2, 3, 0, 1, 2, 3],       // Reel 3: Balanced
+    [0, 1, 2, 3, 0, 1, 2, 3],       // Reel 4: Balanced
+    [0, 1, 2, 3, 0, 1, 2, 3]        // Reel 5: Balanced
+];
 
 const SYMBOLS = {
     0: { name: 'J',     color: 0x9B59B6, payout: [0, 0, 0, 0.1, 0.2, 0.5] },
@@ -144,10 +154,19 @@ async function initSlotEngine() {
             for (let r = 0; r < ROWS; r++) {
                 if (!gridData[c][r]) {
                     let symId;
-                    if (Math.random() < 0.05) symId = 6; 
-                    else symId = Math.floor(Math.random() * 4); 
                     
-                    let goldenChance = (symId < 4 && Math.random() < 0.20); 
+                    // STAGE 3: Hard limit of 3 Scatters generated per spin loop
+                    if (scattersGeneratedThisSpin < 3 && Math.random() < 0.015) { 
+                        symId = 6;
+                        scattersGeneratedThisSpin++;
+                    } else {
+                        // STAGE 1: Pull from the weighted reel strips
+                        const strip = REEL_STRIPS[c];
+                        symId = strip[Math.floor(Math.random() * strip.length)];
+                    }
+                    
+                    // STAGE 2: 8% Golden Card Chance
+                    let goldenChance = (symId < 4 && Math.random() < 0.08); 
                     
                     gridData[c][r] = { id: symId, isGolden: goldenChance, markedForRemoval: false };
                     const startY = -(ROWS - r) * (TILE_SIZE + MARGIN) - 200; 
@@ -165,11 +184,19 @@ async function initSlotEngine() {
             }
         }
         
-        if (scatterCount >= 3) {
-            alert("3 SCATTERS FOUND! 10 FREE SPINS AWARDED!");
-            freeSpinsRemaining += 10;
-            isFreeSpinMode = true;
-            currentMultipliers = FREE_MULTIPLIERS;
+        if (scatterCount === 3) {
+            if (isFreeSpinMode) {
+                // STAGE 4: Retriggers inside Free Spins only give 2 to 5 extra spins
+                let extraSpins = Math.floor(Math.random() * 4) + 2; 
+                alert(`3 SCATTERS RETRIGGER! ${extraSpins} EXTRA FREE SPINS!`);
+                freeSpinsRemaining += extraSpins;
+            } else {
+                // Initial Trigger gives the full 10
+                alert("3 SCATTERS FOUND! 10 FREE SPINS AWARDED!");
+                freeSpinsRemaining += 10;
+                isFreeSpinMode = true;
+                currentMultipliers = FREE_MULTIPLIERS;
+            }
             updateUIHeaders();
         }
     }
@@ -225,7 +252,7 @@ async function initSlotEngine() {
             if (isFreeSpinMode && freeSpinsRemaining > 0) {
                 setTimeout(triggerSpin, 1500); 
             } else if (isFreeSpinMode && freeSpinsRemaining <= 0) {
-                alert("Free Spins Finished! Returning to normal game.");
+                if (currentWin > 0) alert(`Free Spins Finished! Total Bonus Win: $${currentWin.toFixed(2)}`);
                 isFreeSpinMode = false;
                 currentMultipliers = NORMAL_MULTIPLIERS;
                 isGameRunning = false;
@@ -282,15 +309,22 @@ async function initSlotEngine() {
                 alert("Insufficient Balance for this bet!");
                 return;
             }
-            // THIS is where your balance goes down when you play!
             balance -= betAmount;
         } else {
             freeSpinsRemaining--;
         }
 
         isGameRunning = true;
-        currentWin = 0.00;
+        
+        // Reset state for the new spin cycle
+        if (!isFreeSpinMode || (isFreeSpinMode && freeSpinsRemaining === 9)) {
+             // Keep the currentWin accumulating if we are in free spins
+             if (!isFreeSpinMode) currentWin = 0.00; 
+        }
+        
         multiplierIndex = 0; 
+        scattersGeneratedThisSpin = 0; // Reset scatter cap limit per spin
+        
         updateUIHeaders();
 
         for (let c = 0; c < COLS; c++) {
