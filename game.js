@@ -1,9 +1,19 @@
 // --- 1. GAME CONTEXT & WALLET STATE ---
-let balance = 1000.00;
-let betAmount = 10.00;
+let balance = 1000.00; // Starting Balance!
+
+// New Bet Tier System
+const BET_TIERS = [1, 3, 5, 8, 10, 20, 30, 50, 100, 200, 500, 1000];
+let currentBetIndex = 4; // Starts at index 4 (which is $10)
+let betAmount = BET_TIERS[currentBetIndex]; 
+
 let currentWin = 0.00;
 let multiplierIndex = 0; 
-const MULTIPLIERS = [1, 2, 3, 5];
+let freeSpinsRemaining = 0;
+let isFreeSpinMode = false;
+
+const NORMAL_MULTIPLIERS = [1, 2, 3, 5];
+const FREE_MULTIPLIERS = [2, 4, 6, 10];
+let currentMultipliers = NORMAL_MULTIPLIERS;
 
 const ROWS = 4;
 const COLS = 5;
@@ -22,7 +32,8 @@ const SYMBOLS = {
     2: { name: 'K',     color: 0x3498DB, payout: [0, 0, 0, 0.2, 0.3, 0.8] },
     3: { name: 'A',     color: 0xE74C3C, payout: [0, 0, 0, 0.3, 0.5, 1.2] },
     4: { name: 'Gold',  color: 0xF1C40F, payout: [0, 0, 0, 0.5, 1.0, 2.5] }, 
-    5: { name: 'WILD',  color: 0x1ABC9C, payout: [0, 0, 0, 0.0, 0.0, 0.0] }  
+    5: { name: 'WILD',  color: 0x1ABC9C, payout: [0, 0, 0, 0.0, 0.0, 0.0] },
+    6: { name: 'SCATTER',color: 0xE67E22, payout: [0, 0, 0, 0.0, 0.0, 0.0] }
 };
 const BASE_NAMES = ['J', 'Q', 'K', 'A'];
 
@@ -33,7 +44,7 @@ document.getElementById('play-btn').addEventListener('click', () => {
     setTimeout(() => {
         startScreen.style.display = 'none';
         document.getElementById('game-ui').style.display = 'flex';
-        initSlotEngine(); // Boot the game engine
+        initSlotEngine();
     }, 500);
 });
 
@@ -50,10 +61,43 @@ async function initSlotEngine() {
     gridData = Array(COLS).fill(null).map(() => Array(ROWS).fill(null));
     gridSprites = Array(COLS).fill(null).map(() => Array(ROWS).fill(null));
 
+    // BET CONTROLS LOGIC
+    document.getElementById('bet-minus').addEventListener('click', () => {
+        if (isGameRunning || isFreeSpinMode) return;
+        if (currentBetIndex > 0) {
+            currentBetIndex--;
+            betAmount = BET_TIERS[currentBetIndex];
+            updateUIHeaders();
+        }
+    });
+
+    document.getElementById('bet-plus').addEventListener('click', () => {
+        if (isGameRunning || isFreeSpinMode) return;
+        if (currentBetIndex < BET_TIERS.length - 1) {
+            currentBetIndex++;
+            betAmount = BET_TIERS[currentBetIndex];
+            updateUIHeaders();
+        }
+    });
+
     function updateUIHeaders() {
         document.getElementById('balance-display').innerText = `Balance: $${balance.toFixed(2)}`;
-        document.getElementById('multiplier-display').innerText = `Multiplier: x${MULTIPLIERS[multiplierIndex]}`;
+        document.getElementById('multiplier-display').innerText = `Multiplier: x${currentMultipliers[multiplierIndex]}`;
         document.getElementById('win-display').innerText = `Win: $${currentWin.toFixed(2)}`;
+        document.getElementById('bet-display').innerText = `Bet: $${betAmount}`;
+        
+        const fsDisplay = document.getElementById('freespin-display');
+        const spinBtn = document.getElementById('spin-btn');
+        if (isFreeSpinMode) {
+            fsDisplay.style.display = 'block';
+            fsDisplay.innerText = `Free Spins: ${freeSpinsRemaining}`;
+            spinBtn.innerText = 'AUTO FREE SPIN';
+            spinBtn.style.background = 'linear-gradient(180deg, #e74c3c, #c0392b)';
+        } else {
+            fsDisplay.style.display = 'none';
+            spinBtn.innerText = 'SPIN REELS';
+            spinBtn.style.background = 'linear-gradient(180deg, #2ecc71, #27ae60)';
+        }
     }
 
     function createVisualCard(symbolId, isGolden, col, row, startY) {
@@ -61,22 +105,24 @@ async function initSlotEngine() {
         const cardBg = new PIXI.Graphics();
         cardBg.roundRect(0, 0, TILE_SIZE, TILE_SIZE, 12);
         
-        cardBg.fill({ color: isGolden && symbolId !== 5 ? 0xFFD700 : SYMBOLS[symbolId].color });
+        cardBg.fill({ color: isGolden && symbolId !== 5 && symbolId !== 6 ? 0xFFD700 : SYMBOLS[symbolId].color });
         cardBg.stroke({ color: isGolden && symbolId !== 5 ? 0xFFFFFF : 0x333333, width: isGolden ? 4 : 2 });
         container.addChild(cardBg);
 
         let characterText = SYMBOLS[symbolId].name;
         let textColor = 0xFFFFFF;
-        if (isGolden && symbolId !== 5) {
+        if (isGolden && symbolId < 4) {
             characterText = BASE_NAMES[symbolId] + "\n⭐";
             textColor = 0x000000; 
+        } else if (symbolId === 6) { 
+            textColor = 0x000000;
         }
 
         const cardLabel = new PIXI.Text({
             text: characterText,
             style: {
                 fontFamily: 'Arial Black',
-                fontSize: symbolId === 5 || isGolden ? 22 : 40,
+                fontSize: symbolId >= 5 ? 18 : 40,
                 fill: textColor,
                 align: 'center'
             }
@@ -97,14 +143,34 @@ async function initSlotEngine() {
         for (let c = 0; c < COLS; c++) {
             for (let r = 0; r < ROWS; r++) {
                 if (!gridData[c][r]) {
-                    let symId = Math.floor(Math.random() * 4); 
-                    let goldenChance = (Math.random() < 0.25); 
+                    let symId;
+                    if (Math.random() < 0.05) symId = 6; 
+                    else symId = Math.floor(Math.random() * 4); 
+                    
+                    let goldenChance = (symId < 4 && Math.random() < 0.20); 
                     
                     gridData[c][r] = { id: symId, isGolden: goldenChance, markedForRemoval: false };
-                    const startY = -(ROWS - r) * (TILE_SIZE + MARGIN) - 200; // Drop from higher up
+                    const startY = -(ROWS - r) * (TILE_SIZE + MARGIN) - 200; 
                     gridSprites[c][r] = createVisualCard(symId, goldenChance, c, r, startY);
                 }
             }
+        }
+    }
+
+    function checkScatters() {
+        let scatterCount = 0;
+        for (let c = 0; c < COLS; c++) {
+            for (let r = 0; r < ROWS; r++) {
+                if (gridData[c][r] && gridData[c][r].id === 6) scatterCount++;
+            }
+        }
+        
+        if (scatterCount >= 3) {
+            alert("3 SCATTERS FOUND! 10 FREE SPINS AWARDED!");
+            freeSpinsRemaining += 10;
+            isFreeSpinMode = true;
+            currentMultipliers = FREE_MULTIPLIERS;
+            updateUIHeaders();
         }
     }
 
@@ -138,7 +204,7 @@ async function initSlotEngine() {
                 for (let i = 0; i < consecutiveSpans; i++) totalWaysPaths *= columnMatches[i];
 
                 let basePayoutRate = SYMBOLS[baseSymbol].payout[consecutiveSpans];
-                let payoutChunk = totalWaysPaths * (basePayoutRate * betAmount) * MULTIPLIERS[multiplierIndex];
+                let payoutChunk = totalWaysPaths * (basePayoutRate * betAmount) * currentMultipliers[multiplierIndex];
                 spinPayoutSum += payoutChunk;
 
                 for (let i = 0; i < consecutiveSpans; i++) {
@@ -155,7 +221,18 @@ async function initSlotEngine() {
             updateUIHeaders();
             setTimeout(processCascadePhase, 700);
         } else {
-            isGameRunning = false;
+            checkScatters();
+            if (isFreeSpinMode && freeSpinsRemaining > 0) {
+                setTimeout(triggerSpin, 1500); 
+            } else if (isFreeSpinMode && freeSpinsRemaining <= 0) {
+                alert("Free Spins Finished! Returning to normal game.");
+                isFreeSpinMode = false;
+                currentMultipliers = NORMAL_MULTIPLIERS;
+                isGameRunning = false;
+                updateUIHeaders();
+            } else {
+                isGameRunning = false;
+            }
         }
     }
 
@@ -165,7 +242,6 @@ async function initSlotEngine() {
                 let cell = gridData[c][r];
                 if (cell && cell.markedForRemoval) {
                     app.stage.removeChild(gridSprites[c][r]);
-                    
                     if (cell.isGolden && cell.id !== 5) {
                         gridData[c][r] = { id: 5, isGolden: false, markedForRemoval: false };
                         gridSprites[c][r] = createVisualCard(5, false, c, r, r * (TILE_SIZE + MARGIN) + MARGIN);
@@ -191,7 +267,7 @@ async function initSlotEngine() {
             }
         }
 
-        if (multiplierIndex < MULTIPLIERS.length - 1) multiplierIndex++;
+        if (multiplierIndex < currentMultipliers.length - 1) multiplierIndex++;
         
         populateGrid();
         updateUIHeaders();
@@ -199,14 +275,20 @@ async function initSlotEngine() {
     }
 
     function triggerSpin() {
-        if (isGameRunning) return;
-        if (balance < betAmount) {
-            alert("Insufficient Balance!");
-            return;
+        if (isGameRunning && !isFreeSpinMode) return; 
+        
+        if (!isFreeSpinMode) {
+            if (balance < betAmount) {
+                alert("Insufficient Balance for this bet!");
+                return;
+            }
+            // THIS is where your balance goes down when you play!
+            balance -= betAmount;
+        } else {
+            freeSpinsRemaining--;
         }
 
         isGameRunning = true;
-        balance -= betAmount;
         currentWin = 0.00;
         multiplierIndex = 0; 
         updateUIHeaders();
