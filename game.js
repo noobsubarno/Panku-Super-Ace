@@ -9,7 +9,7 @@ let currentWin = 0.00;
 let multiplierIndex = 0; 
 let freeSpinsRemaining = 0;
 let isFreeSpinMode = false;
-let scattersGeneratedThisSpin = 0; // STAGE 3: Scatter Limiter
+let scattersGeneratedThisSpin = 0; 
 
 const NORMAL_MULTIPLIERS = [1, 2, 3, 5];
 const FREE_MULTIPLIERS = [2, 4, 6, 10];
@@ -26,26 +26,19 @@ let app;
 let gridData = [];
 let gridSprites = [];
 
-// STAGE 1: Weighted Math Strips (The House Edge)
-// 0=J, 1=Q, 2=K, 3=A
-const REEL_STRIPS = [
-    [0, 0, 0, 1, 1, 1, 2, 3],       // Reel 1: Heavy J & Q
-    [2, 2, 2, 3, 3, 3, 0, 1],       // Reel 2: Heavy K & A (Breaks the chain often)
-    [0, 1, 2, 3, 0, 1, 2, 3],       // Reel 3: Balanced
-    [0, 1, 2, 3, 0, 1, 2, 3],       // Reel 4: Balanced
-    [0, 1, 2, 3, 0, 1, 2, 3]        // Reel 5: Balanced
-];
-
+// NEW ALGORITHM: 8 Base Symbols to stop infinite cascades + Brutally low base payouts
 const SYMBOLS = {
-    0: { name: 'J',     color: 0x9B59B6, payout: [0, 0, 0, 0.1, 0.2, 0.5] },
-    1: { name: 'Q',     color: 0x2ECC71, payout: [0, 0, 0, 0.1, 0.2, 0.5] },
-    2: { name: 'K',     color: 0x3498DB, payout: [0, 0, 0, 0.2, 0.3, 0.8] },
-    3: { name: 'A',     color: 0xE74C3C, payout: [0, 0, 0, 0.3, 0.5, 1.2] },
-    4: { name: 'Gold',  color: 0xF1C40F, payout: [0, 0, 0, 0.5, 1.0, 2.5] }, 
-    5: { name: 'WILD',  color: 0x1ABC9C, payout: [0, 0, 0, 0.0, 0.0, 0.0] },
-    6: { name: 'SCATTER',color: 0xE67E22, payout: [0, 0, 0, 0.0, 0.0, 0.0] }
+    0: { name: 'J',     color: 0x8B9DC3, payout: [0, 0, 0, 0.02, 0.05, 0.1] },  // Bet 10 pays $0.20
+    1: { name: 'Q',     color: 0x5C90D2, payout: [0, 0, 0, 0.02, 0.05, 0.1] },
+    2: { name: 'K',     color: 0x3498DB, payout: [0, 0, 0, 0.05, 0.1,  0.2] },  // Bet 10 pays $0.50
+    3: { name: 'A',     color: 0xE74C3C, payout: [0, 0, 0, 0.05, 0.1,  0.2] },
+    4: { name: '♣',     color: 0x27AE60, payout: [0, 0, 0, 0.1,  0.2,  0.4] },
+    5: { name: '♦',     color: 0x9B59B6, payout: [0, 0, 0, 0.1,  0.2,  0.4] },
+    6: { name: '♥',     color: 0xE67E22, payout: [0, 0, 0, 0.15, 0.3,  0.6] },
+    7: { name: '♠',     color: 0xC0392B, payout: [0, 0, 0, 0.2,  0.4,  0.8] },  // Highest standard symbol
+    8: { name: 'WILD',  color: 0x1ABC9C, payout: [0, 0, 0, 0.0,  0.0,  0.0] },
+    9: { name: 'SCATTER',color: 0xF1C40F, payout: [0, 0, 0, 0.0,  0.0,  0.0] }
 };
-const BASE_NAMES = ['J', 'Q', 'K', 'A'];
 
 // --- 2. START SCREEN CONTROLLER ---
 document.getElementById('play-btn').addEventListener('click', () => {
@@ -71,7 +64,7 @@ async function initSlotEngine() {
     gridData = Array(COLS).fill(null).map(() => Array(ROWS).fill(null));
     gridSprites = Array(COLS).fill(null).map(() => Array(ROWS).fill(null));
 
-    // BET CONTROLS LOGIC
+    // BET CONTROLS
     document.getElementById('bet-minus').addEventListener('click', () => {
         if (isGameRunning || isFreeSpinMode) return;
         if (currentBetIndex > 0) {
@@ -115,16 +108,18 @@ async function initSlotEngine() {
         const cardBg = new PIXI.Graphics();
         cardBg.roundRect(0, 0, TILE_SIZE, TILE_SIZE, 12);
         
-        cardBg.fill({ color: isGolden && symbolId !== 5 && symbolId !== 6 ? 0xFFD700 : SYMBOLS[symbolId].color });
-        cardBg.stroke({ color: isGolden && symbolId !== 5 ? 0xFFFFFF : 0x333333, width: isGolden ? 4 : 2 });
+        // ID 8 is Wild, ID 9 is Scatter
+        cardBg.fill({ color: isGolden && symbolId < 8 ? 0xFFD700 : SYMBOLS[symbolId].color });
+        cardBg.stroke({ color: isGolden && symbolId < 8 ? 0xFFFFFF : 0x333333, width: isGolden ? 4 : 2 });
         container.addChild(cardBg);
 
         let characterText = SYMBOLS[symbolId].name;
         let textColor = 0xFFFFFF;
-        if (isGolden && symbolId < 4) {
-            characterText = BASE_NAMES[symbolId] + "\n⭐";
+        
+        if (isGolden && symbolId < 8) {
+            characterText += "\n⭐";
             textColor = 0x000000; 
-        } else if (symbolId === 6) { 
+        } else if (symbolId === 9) { 
             textColor = 0x000000;
         }
 
@@ -132,7 +127,7 @@ async function initSlotEngine() {
             text: characterText,
             style: {
                 fontFamily: 'Arial Black',
-                fontSize: symbolId >= 5 ? 18 : 40,
+                fontSize: symbolId >= 8 ? 20 : 36,
                 fill: textColor,
                 align: 'center'
             }
@@ -155,18 +150,20 @@ async function initSlotEngine() {
                 if (!gridData[c][r]) {
                     let symId;
                     
-                    // STAGE 3: Hard limit of 3 Scatters generated per spin loop
-                    if (scattersGeneratedThisSpin < 3 && Math.random() < 0.015) { 
-                        symId = 6;
+                    // Spawn Scatter (Max 3 per spin sequence)
+                    if (scattersGeneratedThisSpin < 3 && Math.random() < 0.01) { 
+                        symId = 9;
                         scattersGeneratedThisSpin++;
                     } else {
-                        // STAGE 1: Pull from the weighted reel strips
-                        const strip = REEL_STRIPS[c];
-                        symId = strip[Math.floor(Math.random() * strip.length)];
+                        // Generate from the 8 basic symbols
+                        // Heavily weighted toward 0-3 (J,Q,K,A) to reduce payouts further
+                        let roll = Math.random();
+                        if (roll < 0.6) symId = Math.floor(Math.random() * 4); // 60% chance for low cards
+                        else symId = Math.floor(Math.random() * 4) + 4; // 40% chance for high suits
                     }
                     
-                    // STAGE 2: 8% Golden Card Chance
-                    let goldenChance = (symId < 4 && Math.random() < 0.08); 
+                    // Golden cards only spawn 10% of the time, and only on base symbols
+                    let goldenChance = (symId < 8 && Math.random() < 0.10); 
                     
                     gridData[c][r] = { id: symId, isGolden: goldenChance, markedForRemoval: false };
                     const startY = -(ROWS - r) * (TILE_SIZE + MARGIN) - 200; 
@@ -180,18 +177,16 @@ async function initSlotEngine() {
         let scatterCount = 0;
         for (let c = 0; c < COLS; c++) {
             for (let r = 0; r < ROWS; r++) {
-                if (gridData[c][r] && gridData[c][r].id === 6) scatterCount++;
+                if (gridData[c][r] && gridData[c][r].id === 9) scatterCount++;
             }
         }
         
         if (scatterCount === 3) {
             if (isFreeSpinMode) {
-                // STAGE 4: Retriggers inside Free Spins only give 2 to 5 extra spins
                 let extraSpins = Math.floor(Math.random() * 4) + 2; 
                 alert(`3 SCATTERS RETRIGGER! ${extraSpins} EXTRA FREE SPINS!`);
                 freeSpinsRemaining += extraSpins;
             } else {
-                // Initial Trigger gives the full 10
                 alert("3 SCATTERS FOUND! 10 FREE SPINS AWARDED!");
                 freeSpinsRemaining += 10;
                 isFreeSpinMode = true;
@@ -205,14 +200,16 @@ async function initSlotEngine() {
         let winningCombinationsFound = false;
         let spinPayoutSum = 0;
 
-        for (let baseSymbol = 0; baseSymbol <= 4; baseSymbol++) {
+        // Loop through all 8 base symbols
+        for (let baseSymbol = 0; baseSymbol <= 7; baseSymbol++) {
             let columnMatches = Array(COLS).fill(0);
             let matchMap = Array(COLS).fill(null).map(() => []);
 
             for (let c = 0; c < COLS; c++) {
                 for (let r = 0; r < ROWS; r++) {
                     let cell = gridData[c][r];
-                    if (cell && (cell.id === baseSymbol || cell.id === 5)) {
+                    // Match the symbol, or match ID 8 (WILD)
+                    if (cell && (cell.id === baseSymbol || cell.id === 8)) {
                         columnMatches[c]++;
                         matchMap[c].push(r);
                     }
@@ -269,9 +266,11 @@ async function initSlotEngine() {
                 let cell = gridData[c][r];
                 if (cell && cell.markedForRemoval) {
                     app.stage.removeChild(gridSprites[c][r]);
-                    if (cell.isGolden && cell.id !== 5) {
-                        gridData[c][r] = { id: 5, isGolden: false, markedForRemoval: false };
-                        gridSprites[c][r] = createVisualCard(5, false, c, r, r * (TILE_SIZE + MARGIN) + MARGIN);
+                    
+                    // If golden and not already Wild/Scatter, turn to WILD (ID 8)
+                    if (cell.isGolden && cell.id < 8) {
+                        gridData[c][r] = { id: 8, isGolden: false, markedForRemoval: false };
+                        gridSprites[c][r] = createVisualCard(8, false, c, r, r * (TILE_SIZE + MARGIN) + MARGIN);
                     } else {
                         gridData[c][r] = null;
                         gridSprites[c][r] = null;
@@ -316,14 +315,12 @@ async function initSlotEngine() {
 
         isGameRunning = true;
         
-        // Reset state for the new spin cycle
         if (!isFreeSpinMode || (isFreeSpinMode && freeSpinsRemaining === 9)) {
-             // Keep the currentWin accumulating if we are in free spins
              if (!isFreeSpinMode) currentWin = 0.00; 
         }
         
         multiplierIndex = 0; 
-        scattersGeneratedThisSpin = 0; // Reset scatter cap limit per spin
+        scattersGeneratedThisSpin = 0; 
         
         updateUIHeaders();
 
