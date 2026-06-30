@@ -19,7 +19,6 @@
             overflow: hidden;
         }
 
-        /* --- START SCREEN STYLING --- */
         #start-screen {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -41,20 +40,17 @@
         #play-btn {
             padding: 20px 60px;
             font-size: 30px;
-            font-weight: bold;
             background: linear-gradient(180deg, #f1c40f, #d35400);
             color: white;
             border: 4px solid #fff;
             border-radius: 15px;
             cursor: pointer;
             box-shadow: 0 10px 30px rgba(241, 196, 15, 0.5);
-            transition: transform 0.1s;
         }
         #play-btn:active { transform: scale(0.95); }
 
-        /* --- GAME UI STYLING --- */
         #game-ui {
-            display: none; /* Hidden until start screen clears */
+            display: none;
             flex-direction: column;
             align-items: center;
         }
@@ -71,8 +67,41 @@
         #multiplier-display { color: #f1c40f; }
         #win-display { color: #2ecc71; }
         
-        #spin-btn {
+        /* --- NEW BET CONTROLS STYLING --- */
+        #control-panel {
+            display: flex;
+            gap: 20px;
             margin-top: 20px;
+            align-items: center;
+        }
+        #bet-selector {
+            display: flex;
+            align-items: center;
+            background: #222;
+            padding: 5px;
+            border-radius: 8px;
+            border: 2px solid #555;
+        }
+        .bet-btn {
+            padding: 10px 20px;
+            font-size: 24px;
+            font-weight: bold;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .bet-btn:active { background: #555; }
+        #bet-display {
+            padding: 0 20px;
+            font-size: 22px;
+            min-width: 100px;
+            text-align: center;
+            color: #f1c40f;
+        }
+
+        #spin-btn {
             padding: 15px 50px;
             font-size: 24px;
             background: linear-gradient(180deg, #2ecc71, #27ae60);
@@ -97,11 +126,21 @@
             <div id="balance-display">Balance: $1000.00</div>
             <div id="multiplier-display">Multiplier: x1</div>
             <div id="win-display">Win: $0.00</div>
+            <div id="freespin-display" style="color: #e74c3c; display: none;">Free Spins: 0</div>
         </div>
+        
         <div id="game-container"></div>
-        <button id="spin-btn">SPIN REELS ($10)</button>
+        
+        <div id="control-panel">
+            <div id="bet-selector">
+                <button class="bet-btn" id="bet-minus">-</button>
+                <div id="bet-display">Bet: $10</div>
+                <button class="bet-btn" id="bet-plus">+</button>
+            </div>
+            <button id="spin-btn">SPIN REELS</button>
+        </div>
     </div>
 
-    <script defer src="game.js?v=3"></script>
+    <script defer src="game.js?v=4"></script>
 </body>
 </html>
