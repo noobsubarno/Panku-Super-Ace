@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- This meta tag forces perfect mobile scaling and prevents accidental zooming -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Panku-Super-Ace</title>
     <style>
@@ -18,7 +17,7 @@
             color: white;
             user-select: none;
             overflow: hidden;
-            touch-action: manipulation; /* Prevents double-tap zoom on phones */
+            touch-action: manipulation;
         }
 
         #start-screen {
@@ -33,7 +32,7 @@
             transition: opacity 0.5s ease;
         }
         #game-title {
-            font-size: 45px; /* Shrunk for mobile */
+            font-size: 45px;
             color: #f1c40f;
             text-shadow: 0 0 20px #e67e22;
             margin-bottom: 30px;
@@ -56,34 +55,63 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 400px; /* Constrain to phone width */
+            max-width: 400px;
         }
         
-        /* Mobile HUD layout */
+        /* --- NEW MULTIPLIER BAR --- */
+        #multiplier-bar {
+            display: flex;
+            width: 95%;
+            background: #111;
+            border-radius: 20px;
+            border: 2px solid #333;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .multi-step {
+            flex: 1;
+            text-align: center;
+            padding: 8px 0;
+            font-size: 16px;
+            color: #555;
+            background: #111;
+            transition: all 0.3s ease;
+            border-right: 1px solid #333;
+        }
+        .multi-step:last-child { border-right: none; }
+        
+        /* Active Glowing Multiplier Step */
+        .multi-step.active {
+            background: linear-gradient(180deg, #f1c40f, #d35400);
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255,255,255,0.8);
+            box-shadow: inset 0 0 10px rgba(255,255,255,0.3);
+        }
+
         #hud-container {
             display: flex;
-            flex-wrap: wrap; /* Allows text to drop to the next line on small screens */
-            justify-content: center;
-            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 10px;
             margin-bottom: 10px;
-            font-size: 14px; /* Shrunk for mobile */
-            background: #111;
-            padding: 10px 15px;
+            font-size: 15px;
+            background: #1a1a1a;
+            padding: 10px 20px;
             border-radius: 10px;
-            border: 2px solid #444;
-            width: 90%;
+            width: 95%;
             box-sizing: border-box;
+            border: 1px solid #333;
         }
-        #multiplier-display { color: #f1c40f; }
-        #win-display { color: #2ecc71; }
+        #balance-display { color: #fff; }
+        #win-display { color: #2ecc71; font-weight: bold; }
         
-        /* Mobile Control Panel */
         #control-panel {
             display: flex;
-            flex-direction: column; /* Stack vertically for phone */
+            flex-direction: column;
             gap: 10px;
             margin-top: 15px;
-            width: 90%;
+            width: 95%;
             align-items: center;
         }
         #bet-selector {
@@ -93,7 +121,7 @@
             background: #222;
             padding: 5px;
             border-radius: 8px;
-            border: 2px solid #555;
+            border: 2px solid #444;
             width: 100%;
             box-sizing: border-box;
         }
@@ -123,6 +151,7 @@
             cursor: pointer;
             width: 100%;
             box-sizing: border-box;
+            text-transform: uppercase;
         }
         #spin-btn:active { transform: scale(0.98); }
     </style>
@@ -136,14 +165,20 @@
     </div>
 
     <div id="game-ui">
+        
+        <div id="multiplier-bar">
+            <div class="multi-step active" id="multi-0">x1</div>
+            <div class="multi-step" id="multi-1">x2</div>
+            <div class="multi-step" id="multi-2">x3</div>
+            <div class="multi-step" id="multi-3">x5</div>
+        </div>
+
         <div id="hud-container">
             <div id="balance-display">Balance: $1000.00</div>
-            <div id="multiplier-display">Multiplier: x1</div>
             <div id="win-display">Win: $0.00</div>
             <div id="freespin-display" style="color: #e74c3c; display: none; width: 100%; text-align: center;">Free Spins: 0</div>
         </div>
         
-        <!-- Game Canvas inserts here -->
         <div id="game-container"></div>
         
         <div id="control-panel">
@@ -156,7 +191,6 @@
         </div>
     </div>
 
-    <!-- Forcing browser cache refresh -->
-    <script defer src="game.js?v=1000"></script>
+    <script defer src="game.js?v=2000"></script>
 </body>
 </html>
