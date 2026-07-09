@@ -15,27 +15,27 @@ const NORMAL_MULTIPLIERS = [1, 2, 3, 5];
 const FREE_MULTIPLIERS = [2, 4, 6, 10];
 let currentMultipliers = NORMAL_MULTIPLIERS;
 
+// MOBILE GRID SIZING (Total Width will now be 361px, perfect for phones)
 const ROWS = 4;
 const COLS = 5;
-const TILE_SIZE = 95;
-const MARGIN = 10;
-const REEL_SPEED = 30;
+const TILE_SIZE = 65; // Shrunk from 95
+const MARGIN = 6;     // Shrunk from 10
+const REEL_SPEED = 25;
 
 let isGameRunning = false;
 let app;
 let gridData = [];
 let gridSprites = [];
 
-// NEW ALGORITHM: 8 Base Symbols to stop infinite cascades + Brutally low base payouts
 const SYMBOLS = {
-    0: { name: 'J',     color: 0x8B9DC3, payout: [0, 0, 0, 0.02, 0.05, 0.1] },  // Bet 10 pays $0.20
+    0: { name: 'J',     color: 0x8B9DC3, payout: [0, 0, 0, 0.02, 0.05, 0.1] },  
     1: { name: 'Q',     color: 0x5C90D2, payout: [0, 0, 0, 0.02, 0.05, 0.1] },
-    2: { name: 'K',     color: 0x3498DB, payout: [0, 0, 0, 0.05, 0.1,  0.2] },  // Bet 10 pays $0.50
+    2: { name: 'K',     color: 0x3498DB, payout: [0, 0, 0, 0.05, 0.1,  0.2] },  
     3: { name: 'A',     color: 0xE74C3C, payout: [0, 0, 0, 0.05, 0.1,  0.2] },
     4: { name: '♣',     color: 0x27AE60, payout: [0, 0, 0, 0.1,  0.2,  0.4] },
     5: { name: '♦',     color: 0x9B59B6, payout: [0, 0, 0, 0.1,  0.2,  0.4] },
     6: { name: '♥',     color: 0xE67E22, payout: [0, 0, 0, 0.15, 0.3,  0.6] },
-    7: { name: '♠',     color: 0xC0392B, payout: [0, 0, 0, 0.2,  0.4,  0.8] },  // Highest standard symbol
+    7: { name: '♠',     color: 0xC0392B, payout: [0, 0, 0, 0.2,  0.4,  0.8] },  
     8: { name: 'WILD',  color: 0x1ABC9C, payout: [0, 0, 0, 0.0,  0.0,  0.0] },
     9: { name: 'SCATTER',color: 0xF1C40F, payout: [0, 0, 0, 0.0,  0.0,  0.0] }
 };
@@ -106,11 +106,10 @@ async function initSlotEngine() {
     function createVisualCard(symbolId, isGolden, col, row, startY) {
         const container = new PIXI.Container();
         const cardBg = new PIXI.Graphics();
-        cardBg.roundRect(0, 0, TILE_SIZE, TILE_SIZE, 12);
+        cardBg.roundRect(0, 0, TILE_SIZE, TILE_SIZE, 8); // Scaled border radius
         
-        // ID 8 is Wild, ID 9 is Scatter
         cardBg.fill({ color: isGolden && symbolId < 8 ? 0xFFD700 : SYMBOLS[symbolId].color });
-        cardBg.stroke({ color: isGolden && symbolId < 8 ? 0xFFFFFF : 0x333333, width: isGolden ? 4 : 2 });
+        cardBg.stroke({ color: isGolden && symbolId < 8 ? 0xFFFFFF : 0x333333, width: isGolden ? 3 : 1 });
         container.addChild(cardBg);
 
         let characterText = SYMBOLS[symbolId].name;
@@ -127,7 +126,7 @@ async function initSlotEngine() {
             text: characterText,
             style: {
                 fontFamily: 'Arial Black',
-                fontSize: symbolId >= 8 ? 20 : 36,
+                fontSize: symbolId >= 8 ? 14 : 26, // Scaled down for mobile cards
                 fill: textColor,
                 align: 'center'
             }
@@ -150,19 +149,15 @@ async function initSlotEngine() {
                 if (!gridData[c][r]) {
                     let symId;
                     
-                    // Spawn Scatter (Max 3 per spin sequence)
                     if (scattersGeneratedThisSpin < 3 && Math.random() < 0.01) { 
                         symId = 9;
                         scattersGeneratedThisSpin++;
                     } else {
-                        // Generate from the 8 basic symbols
-                        // Heavily weighted toward 0-3 (J,Q,K,A) to reduce payouts further
                         let roll = Math.random();
-                        if (roll < 0.6) symId = Math.floor(Math.random() * 4); // 60% chance for low cards
-                        else symId = Math.floor(Math.random() * 4) + 4; // 40% chance for high suits
+                        if (roll < 0.6) symId = Math.floor(Math.random() * 4); 
+                        else symId = Math.floor(Math.random() * 4) + 4; 
                     }
                     
-                    // Golden cards only spawn 10% of the time, and only on base symbols
                     let goldenChance = (symId < 8 && Math.random() < 0.10); 
                     
                     gridData[c][r] = { id: symId, isGolden: goldenChance, markedForRemoval: false };
@@ -200,7 +195,6 @@ async function initSlotEngine() {
         let winningCombinationsFound = false;
         let spinPayoutSum = 0;
 
-        // Loop through all 8 base symbols
         for (let baseSymbol = 0; baseSymbol <= 7; baseSymbol++) {
             let columnMatches = Array(COLS).fill(0);
             let matchMap = Array(COLS).fill(null).map(() => []);
@@ -208,7 +202,6 @@ async function initSlotEngine() {
             for (let c = 0; c < COLS; c++) {
                 for (let r = 0; r < ROWS; r++) {
                     let cell = gridData[c][r];
-                    // Match the symbol, or match ID 8 (WILD)
                     if (cell && (cell.id === baseSymbol || cell.id === 8)) {
                         columnMatches[c]++;
                         matchMap[c].push(r);
@@ -267,7 +260,6 @@ async function initSlotEngine() {
                 if (cell && cell.markedForRemoval) {
                     app.stage.removeChild(gridSprites[c][r]);
                     
-                    // If golden and not already Wild/Scatter, turn to WILD (ID 8)
                     if (cell.isGolden && cell.id < 8) {
                         gridData[c][r] = { id: 8, isGolden: false, markedForRemoval: false };
                         gridSprites[c][r] = createVisualCard(8, false, c, r, r * (TILE_SIZE + MARGIN) + MARGIN);
