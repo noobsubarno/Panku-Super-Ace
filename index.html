@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- This meta tag forces perfect mobile scaling and prevents accidental zooming -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Panku-Super-Ace</title>
     <style>
         body {
@@ -17,6 +18,7 @@
             color: white;
             user-select: none;
             overflow: hidden;
+            touch-action: manipulation; /* Prevents double-tap zoom on phones */
         }
 
         #start-screen {
@@ -31,19 +33,19 @@
             transition: opacity 0.5s ease;
         }
         #game-title {
-            font-size: 60px;
+            font-size: 45px; /* Shrunk for mobile */
             color: #f1c40f;
             text-shadow: 0 0 20px #e67e22;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             text-align: center;
         }
         #play-btn {
-            padding: 20px 60px;
-            font-size: 30px;
+            padding: 15px 40px;
+            font-size: 24px;
             background: linear-gradient(180deg, #f1c40f, #d35400);
             color: white;
-            border: 4px solid #fff;
-            border-radius: 15px;
+            border: 3px solid #fff;
+            border-radius: 12px;
             cursor: pointer;
             box-shadow: 0 10px 30px rgba(241, 196, 15, 0.5);
         }
@@ -53,38 +55,51 @@
             display: none;
             flex-direction: column;
             align-items: center;
+            width: 100%;
+            max-width: 400px; /* Constrain to phone width */
         }
+        
+        /* Mobile HUD layout */
         #hud-container {
             display: flex;
-            gap: 30px;
-            margin-bottom: 15px;
-            font-size: 20px;
+            flex-wrap: wrap; /* Allows text to drop to the next line on small screens */
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 14px; /* Shrunk for mobile */
             background: #111;
-            padding: 15px 30px;
+            padding: 10px 15px;
             border-radius: 10px;
             border: 2px solid #444;
+            width: 90%;
+            box-sizing: border-box;
         }
         #multiplier-display { color: #f1c40f; }
         #win-display { color: #2ecc71; }
         
-        /* --- NEW BET CONTROLS STYLING --- */
+        /* Mobile Control Panel */
         #control-panel {
             display: flex;
-            gap: 20px;
-            margin-top: 20px;
+            flex-direction: column; /* Stack vertically for phone */
+            gap: 10px;
+            margin-top: 15px;
+            width: 90%;
             align-items: center;
         }
         #bet-selector {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             background: #222;
             padding: 5px;
             border-radius: 8px;
             border: 2px solid #555;
+            width: 100%;
+            box-sizing: border-box;
         }
         .bet-btn {
             padding: 10px 20px;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             background: #333;
             color: white;
@@ -94,21 +109,20 @@
         }
         .bet-btn:active { background: #555; }
         #bet-display {
-            padding: 0 20px;
-            font-size: 22px;
-            min-width: 100px;
-            text-align: center;
+            font-size: 18px;
             color: #f1c40f;
         }
 
         #spin-btn {
-            padding: 15px 50px;
-            font-size: 24px;
+            padding: 15px;
+            font-size: 22px;
             background: linear-gradient(180deg, #2ecc71, #27ae60);
             color: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
         }
         #spin-btn:active { transform: scale(0.98); }
     </style>
@@ -126,9 +140,10 @@
             <div id="balance-display">Balance: $1000.00</div>
             <div id="multiplier-display">Multiplier: x1</div>
             <div id="win-display">Win: $0.00</div>
-            <div id="freespin-display" style="color: #e74c3c; display: none;">Free Spins: 0</div>
+            <div id="freespin-display" style="color: #e74c3c; display: none; width: 100%; text-align: center;">Free Spins: 0</div>
         </div>
         
+        <!-- Game Canvas inserts here -->
         <div id="game-container"></div>
         
         <div id="control-panel">
@@ -141,7 +156,7 @@
         </div>
     </div>
 
-    <!-- This is the crucial line that forces the update -->
-    <script defer src="game.js?v=999"></script>
+    <!-- Forcing browser cache refresh -->
+    <script defer src="game.js?v=1000"></script>
 </body>
 </html>
