@@ -15,11 +15,11 @@ const NORMAL_MULTIPLIERS = [1, 2, 3, 5];
 const FREE_MULTIPLIERS = [2, 4, 6, 10];
 let currentMultipliers = NORMAL_MULTIPLIERS;
 
-// MOBILE GRID SIZING (Total Width will now be 361px, perfect for phones)
+// MOBILE GRID SIZING
 const ROWS = 4;
 const COLS = 5;
-const TILE_SIZE = 65; // Shrunk from 95
-const MARGIN = 6;     // Shrunk from 10
+const TILE_SIZE = 65; 
+const MARGIN = 6;     
 const REEL_SPEED = 25;
 
 let isGameRunning = false;
@@ -27,17 +27,18 @@ let app;
 let gridData = [];
 let gridSprites = [];
 
+// NEW CARD COLORS: White cards with colored letters/suits
 const SYMBOLS = {
-    0: { name: 'J',     color: 0x8B9DC3, payout: [0, 0, 0, 0.02, 0.05, 0.1] },  
-    1: { name: 'Q',     color: 0x5C90D2, payout: [0, 0, 0, 0.02, 0.05, 0.1] },
-    2: { name: 'K',     color: 0x3498DB, payout: [0, 0, 0, 0.05, 0.1,  0.2] },  
-    3: { name: 'A',     color: 0xE74C3C, payout: [0, 0, 0, 0.05, 0.1,  0.2] },
-    4: { name: '♣',     color: 0x27AE60, payout: [0, 0, 0, 0.1,  0.2,  0.4] },
-    5: { name: '♦',     color: 0x9B59B6, payout: [0, 0, 0, 0.1,  0.2,  0.4] },
-    6: { name: '♥',     color: 0xE67E22, payout: [0, 0, 0, 0.15, 0.3,  0.6] },
-    7: { name: '♠',     color: 0xC0392B, payout: [0, 0, 0, 0.2,  0.4,  0.8] },  
-    8: { name: 'WILD',  color: 0x1ABC9C, payout: [0, 0, 0, 0.0,  0.0,  0.0] },
-    9: { name: 'SCATTER',color: 0xF1C40F, payout: [0, 0, 0, 0.0,  0.0,  0.0] }
+    0: { name: 'J',     textColor: 0x8B9DC3, payout: [0, 0, 0, 0.02, 0.05, 0.1] },  
+    1: { name: 'Q',     textColor: 0x5C90D2, payout: [0, 0, 0, 0.02, 0.05, 0.1] },
+    2: { name: 'K',     textColor: 0x3498DB, payout: [0, 0, 0, 0.05, 0.1,  0.2] },  
+    3: { name: 'A',     textColor: 0xE74C3C, payout: [0, 0, 0, 0.05, 0.1,  0.2] },
+    4: { name: '♣',     textColor: 0x000000, payout: [0, 0, 0, 0.1,  0.2,  0.4] }, // Black suit
+    5: { name: '♦',     textColor: 0xC0392B, payout: [0, 0, 0, 0.1,  0.2,  0.4] }, // Red suit
+    6: { name: '♥',     textColor: 0xC0392B, payout: [0, 0, 0, 0.15, 0.3,  0.6] }, // Red suit
+    7: { name: '♠',     textColor: 0x000000, payout: [0, 0, 0, 0.2,  0.4,  0.8] }, // Black suit
+    8: { name: 'WILD',  textColor: 0xFFFFFF, payout: [0, 0, 0, 0.0,  0.0,  0.0] },
+    9: { name: 'SCATTER',textColor: 0xFFFFFF, payout: [0, 0, 0, 0.0,  0.0,  0.0] }
 };
 
 // --- 2. START SCREEN CONTROLLER ---
@@ -57,7 +58,7 @@ async function initSlotEngine() {
     await app.init({
         width: (COLS * (TILE_SIZE + MARGIN)) + MARGIN,
         height: (ROWS * (TILE_SIZE + MARGIN)) + MARGIN,
-        backgroundColor: 0x1a1a1a
+        backgroundColor: 0x0a0a0a // Dark background behind the cards
     });
     
     document.getElementById('game-container').appendChild(app.canvas);
@@ -85,15 +86,27 @@ async function initSlotEngine() {
 
     function updateUIHeaders() {
         document.getElementById('balance-display').innerText = `Balance: $${balance.toFixed(2)}`;
-        document.getElementById('multiplier-display').innerText = `Multiplier: x${currentMultipliers[multiplierIndex]}`;
         document.getElementById('win-display').innerText = `Win: $${currentWin.toFixed(2)}`;
         document.getElementById('bet-display').innerText = `Bet: $${betAmount}`;
+        
+        // Update the visual multiplier bar UI
+        for (let i = 0; i < 4; i++) {
+            const stepElement = document.getElementById(`multi-${i}`);
+            // Set the correct text (normal or free spin multi)
+            stepElement.innerText = `x${currentMultipliers[i]}`;
+            // Highlight only the active step
+            if (i === multiplierIndex) {
+                stepElement.classList.add('active');
+            } else {
+                stepElement.classList.remove('active');
+            }
+        }
         
         const fsDisplay = document.getElementById('freespin-display');
         const spinBtn = document.getElementById('spin-btn');
         if (isFreeSpinMode) {
             fsDisplay.style.display = 'block';
-            fsDisplay.innerText = `Free Spins: ${freeSpinsRemaining}`;
+            fsDisplay.innerText = `Free Spins Remaining: ${freeSpinsRemaining}`;
             spinBtn.innerText = 'AUTO FREE SPIN';
             spinBtn.style.background = 'linear-gradient(180deg, #e74c3c, #c0392b)';
         } else {
@@ -106,28 +119,40 @@ async function initSlotEngine() {
     function createVisualCard(symbolId, isGolden, col, row, startY) {
         const container = new PIXI.Container();
         const cardBg = new PIXI.Graphics();
-        cardBg.roundRect(0, 0, TILE_SIZE, TILE_SIZE, 8); // Scaled border radius
+        cardBg.roundRect(0, 0, TILE_SIZE, TILE_SIZE, 6); 
         
-        cardBg.fill({ color: isGolden && symbolId < 8 ? 0xFFD700 : SYMBOLS[symbolId].color });
-        cardBg.stroke({ color: isGolden && symbolId < 8 ? 0xFFFFFF : 0x333333, width: isGolden ? 3 : 1 });
+        // WHITE BACKGROUND FOR NORMAL CARDS to look like real playing cards
+        let bgColor = 0xF5F5F5; // Off-white
+        let borderColor = 0x333333;
+
+        if (isGolden && symbolId < 8) {
+            bgColor = 0xF1C40F; // Gold
+            borderColor = 0xFFFFFF;
+        } else if (symbolId === 8) {
+            bgColor = 0x1ABC9C; // Wild Cyan
+            borderColor = 0xFFFFFF;
+        } else if (symbolId === 9) {
+            bgColor = 0x2C3E50; // Scatter Dark Blue
+            borderColor = 0xF1C40F;
+        }
+        
+        cardBg.fill({ color: bgColor });
+        cardBg.stroke({ color: borderColor, width: 2 });
         container.addChild(cardBg);
 
         let characterText = SYMBOLS[symbolId].name;
-        let textColor = 0xFFFFFF;
         
+        // Add a small star for gold cards
         if (isGolden && symbolId < 8) {
-            characterText += "\n⭐";
-            textColor = 0x000000; 
-        } else if (symbolId === 9) { 
-            textColor = 0x000000;
+            characterText += "\n★";
         }
 
         const cardLabel = new PIXI.Text({
             text: characterText,
             style: {
                 fontFamily: 'Arial Black',
-                fontSize: symbolId >= 8 ? 14 : 26, // Scaled down for mobile cards
-                fill: textColor,
+                fontSize: symbolId >= 8 ? 14 : 24, 
+                fill: SYMBOLS[symbolId].textColor, // Colored text on white cards
                 align: 'center'
             }
         });
